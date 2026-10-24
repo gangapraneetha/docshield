@@ -19,7 +19,7 @@ flowchart TD
     subgraph Server["FastAPI Application Server"]
         Router["Route Handlers (/documents, /auth, /audit)"]
         WS_Handler["Authenticated & Scoped WS Manager"]
-        
+
         subgraph PolicyEngine["Centralized Policy Engine"]
             AuthEngine["authorize_document()"]
             ReasonCodes["Deterministic Reason Codes:
@@ -64,6 +64,7 @@ flowchart TD
     Router --> PrivateStorage
     WS_Handler -.->|Targeted Events Only (Zero Leakage)| WS_Client
 ```
+
 
 ---
 
