@@ -176,14 +176,10 @@ To cryptographically verify audit log integrity and improve accountability, DocS
 The hash for each audit record is calculated as follows:
 
 $$
-\text{current\_hash} =
-\text{SHA256}\left(
-\text{prev\_hash} \parallel
-\text{canonical\_record}
-\right)
+\text{current\_hash} = \text{SHA-256}(\text{prev\_hash} \parallel \text{canonical\_record})
 $$
 
-The `canonical_record` contains a deterministic serialization of the following fields:
+The `canonical_record` contains a deterministic serialization of these fields:
 
 - `user_id`
 - `doc_id`
@@ -196,14 +192,13 @@ The `canonical_record` contains a deterministic serialization of the following f
 ### Security Guarantees
 
 - **Genesis Hash:** The first audit record references a predefined 64-character zero hash.
-- **Tamper Detection:** Modifying an audit record invalidates its hash and causes verification to fail for the affected record and subsequent linked records.
+- **Tamper Detection:** Modifying an audit record causes hash verification to fail for the affected record and potentially subsequent linked records.
 - **Integrity Verification:** The `/api/audit/verify` endpoint and the UI's **Verify Hash Chain** button verify the chain and identify the first detected integrity mismatch.
-- **User Accountability:** Each audit record associates an action with the authenticated user's identifier, supporting traceability of document operations.
-- **Chain Integrity:** Each record incorporates the previous record's hash, making undetected modifications increasingly difficult when the chain is protected by trusted checkpoints.
+- **User Accountability:** Each audit record associates an action with the authenticated user's identifier.
+- **Chain Integrity:** Each record incorporates the previous record's hash, linking the audit history cryptographically.
 - **Additional Protection:** Periodically store the latest chain hash in a separately protected location to help detect attempts to rewrite the entire audit history.
 
-**Security Note:** A SHA-256 hash chain provides tamper evidence, not absolute tamper prevention. Stronger protection against an attacker who can modify the entire database requires independently protected checkpoints, appropriate access controls, and secure audit verification. User attribution also depends on secure authentication and session management.
-
+**Security Note:** A SHA-256 hash chain provides tamper evidence, not absolute tamper prevention. Protection against an attacker who can modify the entire database requires independently protected checkpoints and appropriate access controls. User attribution also depends on secure authentication and session management.
 
 ---
 
