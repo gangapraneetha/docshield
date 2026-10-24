@@ -177,7 +177,7 @@ The hash for each audit record is calculated as follows:
 
 $$
 \text{current\_hash} =
-\operatorname{SHA256}\left(
+\text{SHA256}\left(
 \text{prev\_hash} \parallel
 \text{canonical\_record}
 \right)
