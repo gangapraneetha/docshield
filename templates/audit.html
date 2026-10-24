@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Cryptographic Audit Trail &bull; DocShield{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="dashboard-title">
+        <h1>Cryptographic Audit Trail & Policy Trace</h1>
+        <p>Mathematical Non-Repudiation &bull; Tamper-Evident SHA-256 Hash Chaining</p>
+    </div>
+    <div class="dashboard-actions">
+        <button id="verify-chain-btn" class="btn btn-secondary">
+            🔄 Verify Hash Chain
+        </button>
+    </div>
+</div>
+
+<!-- Cryptographic Chain Status Banner -->
+<div id="integrity-banner" class="flash-alert {% if integrity.valid %}success{% else %}error{% endif %}" style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:1.4rem;">
+        {% if integrity.valid %}🛡️{% else %}⚠️{% endif %}
+    </div>
+    <div style="flex:1;">
+        <strong>Cryptographic Hash Integrity:</strong>
+        <span id="integrity-msg">{{ integrity.message }}</span>
+        {% if integrity.latest_hash %}
+            <div style="font-size:0.75rem;margin-top:2px;font-family:var(--font-mono);color:var(--text-muted);">
+                Latest Chain Block Hash: <code>{{ integrity.latest_hash }}</code>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filters Toolbar -->
+<div class="card-section" style="padding:1rem;margin-bottom:1.5rem;">
+    <form method="get" action="/audit" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:1;min-width:180px;">
+            <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Filter by Action</label>
+            <select name="action" class="form-control" onchange="this.form.submit()">
+                <option value="">-- All Actions --</option>
+                {% for act in distinct_actions %}
+                    <option value="{{ act }}" {% if selected_action == act %}selected{% endif %}>{{ act }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="flex:1;min-width:180px;">
+            <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Filter by Decision</label>
+            <select name="decision" class="form-control" onchange="this.form.submit()">
+                <option value="">-- All Decisions --</option>
+                <option value="ALLOWED" {% if selected_decision == 'ALLOWED' %}selected{% endif %}>ALLOWED Only</option>
+                <option value="DENIED" {% if selected_decision == 'DENIED' %}selected{% endif %}>DENIED Only</option>
+            </select>
+        </div>
+
+        <div>
+            <a href="/audit" class="btn btn-secondary btn-sm" style="height:38px;">Clear Filters</a>
+        </div>
+    </form>
+</div>
+
+<!-- Audit Table -->
+<div class="card-section">
+    <div class="section-head">
+        <h2>Immutable Event Log ({{ logs|length }} records)</h2>
+        <span style="font-size:0.82rem;color:var(--text-muted);">Explainable reason codes recorded on every decision</span>
+    </div>
+
+    {% if logs %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Timestamp (UTC)</th>
+                        <th>Decision</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>Document</th>
+                        <th>Explainable Reason Code</th>
+                        <th>Audit Details</th>
+                        <th>SHA-256 Hash Chain Link</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                        <tr class="filterable-row">
+                            <td style="color:var(--text-dim);font-size:0.8rem;">{{ log.id }}</td>
+                            <td style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;">{{ log.timestamp[:19] }}</td>
+                            <td>
+                                {% if log.decision == 'ALLOWED' %}
+                                    <span class="badge badge-success">ALLOWED</span>
+                                {% else %}
+                                    <span class="badge badge-danger">DENIED</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ log.action }}</strong></td>
+                            <td>
+                                {% if log.actor_name %}
+                                    <span style="color:var(--accent-cyan);">👤 {{ log.actor_name }}</span>
+                                {% else %}
+                                    <span style="color:var(--text-dim);">Anonymous / System</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.document_title or '-' }}</td>
+                            <td>
+                                <code class="code-badge" title="Authorization Reason Code">{{ log.reason_code }}</code>
+                            </td>
+                            <td style="font-size:0.82rem;color:var(--text-muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;">
+                                {{ log.details }}
+                            </td>
+                            <td style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-dim);">
+                                <span title="Current Block Hash: {{ log.current_hash }} (Linked to prev: {{ log.prev_hash }})">
+                                    {{ log.current_hash[:10] }}...{{ log.current_hash[-6:] }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div style="text-align:center;padding:3rem 1rem;color:var(--text-muted);">
+            <p>No audit records match the current filters.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById("verify-chain-btn")?.addEventListener("click", async () => {
+    const btn = document.getElementById("verify-chain-btn");
+    btn.disabled = true;
+    btn.innerText = "Verifying...";
+
+    try {
+        const res = await fetch("/api/audit/verify");
+        const data = await res.json();
+        
+        const banner = document.getElementById("integrity-banner");
+        const msg = document.getElementById("integrity-msg");
+        
+        if (data.valid) {
+            banner.className = "flash-alert success";
+            msg.innerText = data.message;
+        } else {
+            banner.className = "flash-alert error";
+            msg.innerText = `ALERT: ${data.message}`;
+        }
+    } catch (e) {
+        alert("Failed to verify audit hash chain.");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "🔄 Verify Hash Chain";
+    }
+});
+</script>
+{% endblock %}

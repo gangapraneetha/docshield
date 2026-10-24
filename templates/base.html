@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DocShield - Zero-Trust Document Vault{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/dashboard" class="brand">
+                <span class="brand-shield">🛡️</span>
+                <span>DocShield</span>
+                <span class="brand-badge">Zero-Trust</span>
+            </a>
+
+            <div class="nav-links">
+                {% if current_user %}
+                    <a href="/dashboard" class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">
+                        <span>📁</span> Documents
+                    </a>
+                    <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}">
+                        <span>🔍</span> Audit Trail
+                    </a>
+
+                    <!-- WebSocket Connection Health Badge -->
+                    <div class="ws-status-badge">
+                        <span id="ws-pulse" class="ws-pulse"></span>
+                        <span id="ws-status">Connecting...</span>
+                    </div>
+
+                    <!-- User Identity Badge -->
+                    <span style="font-size:0.85rem;color:var(--text-muted);margin-left:0.5rem;">
+                        👤 <strong>{{ current_user.username }}</strong>
+                    </span>
+
+                    <form action="/logout" method="post" style="display:inline;margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn-logout">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="/login" class="nav-link {% if request.url.path == '/login' %}active{% endif %}">Login</a>
+                    <a href="/register" class="btn btn-primary btn-sm">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="main-wrapper">
+        <!-- Global Flash Alerts -->
+        {% if error %}
+            <div class="flash-alert error">
+                <div>⚠️ {{ error }}</div>
+                <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+            </div>
+        {% endif %}
+        {% if success %}
+            <div class="flash-alert success">
+                <div>✓ {{ success }}</div>
+                <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Container for WebSockets -->
+    <div id="toast-container"></div>
+
+    <!-- Footer -->
+    <footer>
+        <p>DocShield Zero-Trust Architecture &bull; Cryptographic Hash Chaining &bull; Explainable Authorization Engine</p>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    {% if current_user %}
+        <script src="/static/js/websocket.js"></script>
+    {% endif %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

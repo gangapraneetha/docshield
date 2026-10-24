@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Not Found &bull; DocShield{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="text-align:center;">
+    <div style="font-size:3.5rem;margin-bottom:1rem;">🔍</div>
+    <h1 style="color:#fff;font-size:1.8rem;margin-bottom:0.5rem;">404 - Resource Not Found</h1>
+    <p style="color:var(--text-muted);font-size:0.92rem;margin-bottom:1.5rem;">
+        {{ detail or 'The requested resource, document, or endpoint does not exist.' }}
+    </p>
+    <a href="/dashboard" class="btn btn-primary">Return to Dashboard</a>
+</div>
+{% endblock %}

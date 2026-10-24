@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Register &bull; DocShield{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-header">
+        <span style="font-size:2.4rem;">🛡️</span>
+        <h1>Create an Account</h1>
+        <p>Register for isolated cryptographic document management</p>
+    </div>
+
+    <form action="/register" method="post">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input 
+                type="text" 
+                id="username" 
+                name="username" 
+                class="form-control" 
+                required 
+                autocomplete="username"
+                value="{{ entered_username or '' }}"
+                placeholder="3-30 alphanumeric characters"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                class="form-control" 
+                required 
+                autocomplete="email"
+                value="{{ entered_email or '' }}"
+                placeholder="name@organization.com"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input 
+                type="password" 
+                id="password" 
+                name="password" 
+                class="form-control" 
+                required 
+                autocomplete="new-password"
+                placeholder="Minimum 8 characters"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input 
+                type="password" 
+                id="confirm_password" 
+                name="confirm_password" 
+                class="form-control" 
+                required 
+                autocomplete="new-password"
+                placeholder="Re-enter password"
+            >
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:1.5rem;">
+            Complete Registration
+        </button>
+    </form>
+
+    <div style="text-align:center;margin-top:1.5rem;font-size:0.88rem;color:var(--text-muted);">
+        Already registered? <a href="/login">Sign in</a>
+    </div>
+</div>
+{% endblock %}

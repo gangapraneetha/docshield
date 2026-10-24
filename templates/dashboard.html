@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard &bull; DocShield Vault{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="dashboard-title">
+        <h1>Secure Document Vault</h1>
+        <p>Authenticated as <strong>{{ current_user.username }}</strong> &bull; Zero-Trust Server-Enforced Policy Engine</p>
+    </div>
+    <div class="dashboard-actions">
+        <button onclick="openModal('upload-modal')" class="btn btn-primary">
+            <span>+</span> Upload Document
+        </button>
+    </div>
+</div>
+
+<!-- Stats Summary Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-label">Owned Documents</span>
+        <span class="stat-value">{{ owned_documents|length }}</span>
+        <span class="stat-desc">Encrypted & private to your account</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Shared With You</span>
+        <span class="stat-value">{{ shared_documents|length }}</span>
+        <span class="stat-desc">Authorized by document owners</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Active Policy Engine</span>
+        <span class="stat-value" style="color:var(--success);font-size:1.4rem;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:1rem;">🛡️</span> Zero-Trust
+        </span>
+        <span class="stat-desc">Evaluates all I/O via authorize_document()</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Real-Time Channel</span>
+        <span class="stat-value" style="color:var(--accent-cyan);font-size:1.4rem;">
+            WebSockets
+        </span>
+        <span class="stat-desc">Scoped event delivery (Zero broadcast leakage)</span>
+    </div>
+</div>
+
+<!-- Search & Filtering Toolbar -->
+<div style="margin-bottom:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">
+    <div style="flex:1;min-width:260px;">
+        <input 
+            type="text" 
+            id="quick-filter-input" 
+            class="form-control" 
+            placeholder="🔍 Quick filter documents by title or filename..."
+        >
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="tabs-container">
+    <button class="tab-btn active" data-tab="tab-owned">
+        My Documents ({{ owned_documents|length }})
+    </button>
+    <button class="tab-btn" data-tab="tab-shared">
+        Shared With Me ({{ shared_documents|length }})
+    </button>
+    <button class="tab-btn" data-tab="tab-activity">
+        Live Security Activity ({{ recent_activity|length }})
+    </button>
+    <button class="tab-btn" data-tab="tab-notifications">
+        Notifications ({{ notifications|length }})
+    </button>
+</div>
+
+<!-- TAB 1: Owned Documents -->
+<div id="tab-owned" class="tab-content">
+    <div class="card-section">
+        <div class="section-head">
+            <h2>Your Vault Documents</h2>
+            <span style="font-size:0.82rem;color:var(--text-muted);">Stored outside public directories</span>
+        </div>
+
+        {% if owned_documents %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Document Title</th>
+                            <th>Original Filename</th>
+                            <th>Size</th>
+                            <th>Uploaded</th>
+                            <th>Active Shares</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="owned-docs-body">
+                        {% for doc in owned_documents %}
+                            <tr class="filterable-row" id="owned-doc-{{ doc.id }}">
+                                <td>
+                                    <strong>{{ doc.title }}</strong>
+                                    {% if doc.description %}
+                                        <div style="font-size:0.75rem;color:var(--text-dim);">{{ doc.description }}</div>
+                                    {% endif %}
+                                </td>
+                                <td><code class="code-badge">{{ doc.filename }}</code></td>
+                                <td>{{ (doc.file_size / 1024)|round(1) }} KB</td>
+                                <td style="font-size:0.8rem;color:var(--text-muted);">{{ doc.created_at[:16] }}</td>
+                                <td>
+                                    {% set perms = doc_permissions.get(doc.id, []) %}
+                                    {% set active_perms = perms|selectattr("is_revoked", "equalto", 0)|list %}
+                                    {% if active_perms %}
+                                        <div style="display:flex;flex-direction:column;gap:4px;">
+                                            {% for p in active_perms %}
+                                                <div style="font-size:0.78rem;display:flex;align-items:center;gap:6px;">
+                                                    <span class="badge badge-info">{{ p.permission_type }}</span>
+                                                    <span>{{ p.username }}</span>
+                                                    <form action="/documents/{{ doc.id }}/revoke" method="post" style="display:inline;margin:0;">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                                        <input type="hidden" name="target_user_id" value="{{ p.user_id }}">
+                                                        <input type="hidden" name="permission_type" value="{{ p.permission_type }}">
+                                                        <button type="submit" title="Revoke access" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;padding:0;">
+                                                            [Revoke]
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span style="font-size:0.78rem;color:var(--text-dim);">Private (Only you)</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:right;white-space:nowrap;">
+                                    <a href="/documents/{{ doc.id }}/download" class="btn btn-secondary btn-sm" title="Download file">
+                                        ⬇ Download
+                                    </a>
+                                    <a href="/documents/{{ doc.id }}/view" target="_blank" class="btn btn-secondary btn-sm" title="Preview file">
+                                        👁 Preview
+                                    </a>
+                                    <button onclick="openShareModal('{{ doc.id }}', '{{ doc.title|escape }}')" class="btn btn-secondary btn-sm" title="Share with registered user">
+                                        🔗 Share
+                                    </button>
+                                    <form action="/documents/{{ doc.id }}/delete" method="post" style="display:inline;margin:0;" onsubmit="return confirm('Permanently delete this document?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <button type="submit" class="btn btn-danger btn-sm" title="Delete document">
+                                            🗑
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div style="text-align:center;padding:3rem 1rem;color:var(--text-muted);">
+                <div style="font-size:2.5rem;margin-bottom:0.5rem;">📂</div>
+                <p>No documents uploaded yet.</p>
+                <button onclick="openModal('upload-modal')" class="btn btn-primary btn-sm" style="margin-top:1rem;">
+                    Upload Your First Document
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB 2: Shared With Me -->
+<div id="tab-shared" class="tab-content" style="display:none;">
+    <div class="card-section">
+        <div class="section-head">
+            <h2>Documents Shared With You</h2>
+            <span style="font-size:0.82rem;color:var(--text-muted);">Access strictly authorized by owners</span>
+        </div>
+
+        {% if shared_documents %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Document Title</th>
+                            <th>Owner</th>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Your Granted Permissions</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shared-docs-body">
+                        {% for doc in shared_documents %}
+                            <tr class="filterable-row" id="shared-doc-{{ doc.id }}">
+                                <td><strong>{{ doc.title }}</strong></td>
+                                <td><span class="badge badge-info">👤 {{ doc.owner_name }}</span></td>
+                                <td><code class="code-badge">{{ doc.filename }}</code></td>
+                                <td>{{ (doc.file_size / 1024)|round(1) }} KB</td>
+                                <td>
+                                    {% for p in doc.granted_permissions.split(',') %}
+                                        <span class="badge badge-success">{{ p.strip() }}</span>
+                                    {% endfor %}
+                                </td>
+                                <td style="text-align:right;white-space:nowrap;">
+                                    {% if 'download' in doc.granted_permissions %}
+                                        <a href="/documents/{{ doc.id }}/download" class="btn btn-secondary btn-sm">
+                                            ⬇ Download
+                                        </a>
+                                    {% endif %}
+                                    <a href="/documents/{{ doc.id }}/view" target="_blank" class="btn btn-secondary btn-sm">
+                                        👁 Preview
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div style="text-align:center;padding:3rem 1rem;color:var(--text-muted);">
+                <div style="font-size:2.5rem;margin-bottom:0.5rem;">🤝</div>
+                <p>No documents have been shared with you yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB 3: Live Security Activity -->
+<div id="tab-activity" class="tab-content" style="display:none;">
+    <div class="card-section">
+        <div class="section-head">
+            <h2>Live Policy Engine Activity</h2>
+            <a href="/audit" class="btn btn-secondary btn-sm">View Full Cryptographic Audit Trail &rarr;</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Decision</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>Target Document</th>
+                        <th>Reason Code</th>
+                        <th>Timestamp (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody id="live-activity-body">
+                    {% for act in recent_activity %}
+                        <tr class="filterable-row">
+                            <td>
+                                {% if act.decision == 'ALLOWED' %}
+                                    <span class="badge badge-success">ALLOWED</span>
+                                {% else %}
+                                    <span class="badge badge-danger">DENIED</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ act.action }}</strong></td>
+                            <td>{{ act.actor_name or 'Unauthenticated' }}</td>
+                            <td>{{ act.document_title or '-' }}</td>
+                            <td><code class="code-badge">{{ act.reason_code }}</code></td>
+                            <td style="font-size:0.8rem;color:var(--text-muted);">{{ act.timestamp[:19] }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 4: Notifications -->
+<div id="tab-notifications" class="tab-content" style="display:none;">
+    <div class="card-section">
+        <div class="section-head">
+            <h2>Notifications & Security Alerts</h2>
+            {% if notifications %}
+                <form action="/notifications/mark-read" method="post" style="display:inline;margin:0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-secondary btn-sm">Mark All as Read</button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% if notifications %}
+            <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                {% for n in notifications %}
+                    <div style="padding:1rem;border-radius:var(--radius-md);background:var(--bg-secondary);border-left:4px solid {% if n.type == 'danger' %}var(--danger){% elif n.type == 'warning' %}var(--warning){% elif n.type == 'success' %}var(--success){% else %}var(--info){% endif %};">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+                            <strong style="color:#fff;">{{ n.title }}</strong>
+                            <span style="font-size:0.75rem;color:var(--text-dim);">{{ n.created_at[:19] }}</span>
+                        </div>
+                        <p style="font-size:0.88rem;color:var(--text-muted);margin:0;">{{ n.message }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align:center;padding:2.5rem 1rem;color:var(--text-muted);">
+                <p>No notifications yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL 1: Upload Document -->
+<div id="upload-modal" class="modal-overlay">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('upload-modal')">&times;</button>
+        <h2 style="color:#fff;margin-bottom:0.5rem;">Upload Document</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.5rem;">
+            Uploaded files are stored in private storage with random internal UUIDs.
+        </p>
+
+        <form action="/documents/upload" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <div class="form-group">
+                <label for="upload-title">Document Title</label>
+                <input type="text" id="upload-title" name="title" class="form-control" required placeholder="e.g. Q4 Financial Report">
+            </div>
+
+            <div class="form-group">
+                <label for="upload-desc">Description (Optional)</label>
+                <textarea id="upload-desc" name="description" class="form-control" rows="2" placeholder="Brief context or sensitivity summary"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="upload-file">Select File (Max 10MB)</label>
+                <input type="file" id="upload-file" name="file" class="form-control" required>
+                <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.4rem;">
+                    Permitted: PDF, PNG, JPG, JPEG, TXT, DOCX, XLSX, CSV, MD
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('upload-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Encrypt & Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL 2: Share Document -->
+<div id="share-modal" class="modal-overlay">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('share-modal')">&times;</button>
+        <h2 id="share-modal-title" style="color:#fff;margin-bottom:0.5rem;">Share Document</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.5rem;">
+            Grant explicit, revocable access permissions to registered users.
+        </p>
+
+        <form id="share-form" action="" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <div class="form-group">
+                <label for="share-target">Select Registered User</label>
+                <select id="share-target" name="target_username" class="form-control" required>
+                    <option value="" disabled selected>-- Choose a registered user --</option>
+                    {% for u in other_users %}
+                        <option value="{{ u.username }}">{{ u.username }} ({{ u.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="share-type">Access Permission Type</label>
+                <select id="share-type" name="permission_type" class="form-control" required>
+                    <option value="view">View Only (Preview in browser)</option>
+                    <option value="download">Download (Download raw file payload)</option>
+                </select>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('share-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Grant Permission</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}403 - Access Denied &bull; DocShield{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="text-align:center;">
+    <div style="font-size:3.5rem;margin-bottom:1rem;">🚫</div>
+    <h1 style="color:#f87171;font-size:1.8rem;margin-bottom:0.5rem;">403 - Access Prohibited</h1>
+    <p style="color:var(--text-muted);font-size:0.92rem;margin-bottom:1rem;">
+        {{ detail or 'Zero-Trust Policy Engine: You are not authorized to perform this operation.' }}
+    </p>
+    <div style="padding:0.75rem;background:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.2);border-radius:var(--radius-sm);margin-bottom:1.5rem;font-size:0.8rem;color:#fca5a5;">
+        This event has been logged to the immutable cryptographic audit trail with actor details and decision rationale.
+    </div>
+    <a href="/dashboard" class="btn btn-secondary">Return to Dashboard</a>
+</div>
+{% endblock %}
