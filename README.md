@@ -48,21 +48,20 @@ flowchart TD
     end
 
     subgraph StorageLayer["Data & Persistence"]
-        DB[("SQLite Database
-        (PRAGMA foreign_keys = ON)")]
-        PrivateStorage[("Private File Storage
-        /storage/uploads/ (UUID4.ext)")]
+        DB[("SQLite Database (PRAGMA foreign_keys = ON)")]
+        PrivateStorage[("Private File Storage (/storage/uploads/ UUID4.ext)")]
     end
 
-    UI -->|HTTPS Requests + CSRF| Router
-    WS_Client <-->|WSS (Scoped & Authenticated)| WS_Handler
+    UI -->|"HTTPS Requests + CSRF"| Router
+    WS_Client <-->|"WSS (Scoped and Authenticated)"| WS_Handler
     Router --> SecurityLayer
     Router --> PolicyEngine
     PolicyEngine --> DB
     Router --> AuditModule
     AuditModule --> DB
     Router --> PrivateStorage
-    WS_Handler -.->|Targeted Events Only (Zero Leakage)| WS_Client
+    WS_Handler -.->|"Targeted Events Only (Zero Leakage)"| WS_Client
+
 ```
 
 
