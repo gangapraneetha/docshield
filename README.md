@@ -169,13 +169,41 @@ Every document access route (`download`, `view`, `share`, `revoke`, `delete`) in
 
 ## 🔗 Cryptographic Non-Repudiation (Tamper-Evident Audit Trail)
 
-To mathematically prove **who performed an action** and prevent log tampering, DocShield implements a **Merkle-style SHA-256 hash chain**:
+## Tamper-Evident Audit Logging
 
-$$\text{current\_hash} = \text{SHA-256}(\text{prev\_hash} \parallel \text{user\_id} \parallel \text{doc\_id} \parallel \text{action} \parallel \text{decision} \parallel \text{reason\_code} \parallel \text{details} \parallel \text{timestamp})$$
+To cryptographically verify audit log integrity and improve accountability, DocShield implements a **SHA-256 hash chain** that links each audit record to the previous record.
 
-* The initial log entry links to a 64-character genesis hash (`00000000...0000`).
-* Any retrospective alteration of a database record (e.g. by a rogue database administrator modifying an access log from `DENIED` to `ALLOWED`) breaks the cryptographic chain.
-* The built-in verifier (`/api/audit/verify` and the UI "Verify Hash Chain" button) continuously inspects the chain from root to tip and pinpoints the exact record ID where tampering occurred.
+The hash for each audit record is calculated as follows:
+
+$$
+\text{current\_hash} =
+\operatorname{SHA256}\left(
+\text{prev\_hash} \parallel
+\text{canonical\_record}
+\right)
+$$
+
+The `canonical_record` contains a deterministic serialization of the following fields:
+
+- `user_id`
+- `doc_id`
+- `action`
+- `decision`
+- `reason_code`
+- `details`
+- `timestamp`
+
+### Security Guarantees
+
+- **Genesis Hash:** The first audit record references a predefined 64-character zero hash.
+- **Tamper Detection:** Modifying an audit record invalidates its hash and causes verification to fail for the affected record and subsequent linked records.
+- **Integrity Verification:** The `/api/audit/verify` endpoint and the UI's **Verify Hash Chain** button verify the chain and identify the first detected integrity mismatch.
+- **User Accountability:** Each audit record associates an action with the authenticated user's identifier, supporting traceability of document operations.
+- **Chain Integrity:** Each record incorporates the previous record's hash, making undetected modifications increasingly difficult when the chain is protected by trusted checkpoints.
+- **Additional Protection:** Periodically store the latest chain hash in a separately protected location to help detect attempts to rewrite the entire audit history.
+
+**Security Note:** A SHA-256 hash chain provides tamper evidence, not absolute tamper prevention. Stronger protection against an attacker who can modify the entire database requires independently protected checkpoints, appropriate access controls, and secure audit verification. User attribution also depends on secure authentication and session management.
+
 
 ---
 
